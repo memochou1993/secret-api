@@ -1,9 +1,12 @@
 package handler
 
 import (
+	"errors"
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
-	"log"
+	"github.com/memochou1993/password-manager-api/database"
+	"github.com/memochou1993/password-manager-api/util"
+	"gorm.io/gorm"
 	"net/http"
 	"os"
 	"strconv"
@@ -11,27 +14,37 @@ import (
 )
 
 type TokenClaims struct {
-	Name string `json:"name"`
+	UserID uint
 	jwt.StandardClaims
 }
 
-type LoginRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
+type CreateTokenRequest struct {
+	Email    string `json:"email" validate:"required"`
+	Password string `json:"password" validate:"required"`
 }
 
-func Login(c echo.Context) error {
-	u := new(LoginRequest)
-	if err := c.Bind(u); err != nil {
-		log.Fatalln(err)
+func CreateToken(c echo.Context) error {
+	req := &CreateTokenRequest{}
+	if err := c.Bind(req); err != nil {
+		return err
 	}
-	// FIXME
-	if u.Username != "" || u.Password != "" {
+	if err := c.Validate(req); err != nil {
+		return err
+	}
+	user := &database.User{}
+	tx := database.DB().Where(&database.User{Email: req.Email}).First(user)
+	if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
 		return echo.ErrUnauthorized
 	}
-	ttl, _ := strconv.Atoi(os.Getenv("JWT_TTL"))
+	if !util.CheckPassword(req.Password, user.Password) {
+		return echo.ErrUnauthorized
+	}
+	ttl, err := strconv.Atoi(os.Getenv("JWT_TTL"))
+	if err != nil {
+		return err
+	}
 	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, &TokenClaims{
-		u.Username,
+		user.ID,
 		jwt.StandardClaims{
 			ExpiresAt: time.Now().Add(time.Second * time.Duration(ttl)).Unix(),
 		},
