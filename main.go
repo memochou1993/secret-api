@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"github.com/go-playground/validator"
-	"github.com/memochou1993/password-manager-api/database"
+	"github.com/memochou1993/secret-api/database"
 	"log"
 	"net/http"
 	"os"
@@ -11,7 +11,7 @@ import (
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/memochou1993/password-manager-api/handler"
+	"github.com/memochou1993/secret-api/handler"
 )
 
 func init() {

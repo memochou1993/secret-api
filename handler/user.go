@@ -3,8 +3,8 @@ package handler
 import (
 	"errors"
 	"github.com/labstack/echo/v4"
-	"github.com/memochou1993/password-manager-api/database"
-	"github.com/memochou1993/password-manager-api/util"
+	"github.com/memochou1993/secret-api/database"
+	"github.com/memochou1993/secret-api/util"
 	"gorm.io/gorm"
 	"net/http"
 )

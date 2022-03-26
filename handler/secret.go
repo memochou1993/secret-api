@@ -4,7 +4,7 @@ import (
 	"errors"
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
-	"github.com/memochou1993/password-manager-api/database"
+	"github.com/memochou1993/secret-api/database"
 	"gorm.io/gorm"
 	"net/http"
 	"strconv"
