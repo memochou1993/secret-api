@@ -36,6 +36,10 @@ func main() {
 	app := echo.New()
 	app.Use(middleware.Recover())
 	app.Validator = &CustomValidator{validator: validator.New()}
+	app.Use(middleware.CORSWithConfig(middleware.CORSConfig{
+		AllowOrigins: []string{"*"},
+		AllowHeaders: []string{"*"},
+	}))
 
 	api := app.Group("/api")
 	api.POST("/tokens", handler.CreateToken)
