@@ -23,9 +23,9 @@ type User struct {
 
 type Secret struct {
 	ID       uint   `json:"id" gorm:"primarykey"`
-	Name     string `json:"name" validate:"required"`
-	Value    string `json:"value" validate:"required"`
-	Metadata string `json:"metadata"`
+	Username string `json:"username" validate:"required"`
+	Password string `json:"password" validate:"required"`
+	Tags     string `json:"tags" validate:"required"`
 	UserID   uint   `json:"-"`
 	BaseModel
 }
