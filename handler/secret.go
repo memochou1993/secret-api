@@ -13,7 +13,7 @@ import (
 func ListSecrets(c echo.Context) error {
 	userID := c.Get("user").(*jwt.Token).Claims.(*TokenClaims).UserID
 	secrets := &[]database.Secret{}
-	database.DB().Where(&database.Secret{UserID: userID}).Find(secrets)
+	database.DB().Where(&database.Secret{UserID: userID}).Order("id DESC").Find(secrets)
 	return c.JSON(http.StatusOK, echo.Map{
 		"data": secrets,
 	})
