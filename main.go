@@ -15,9 +15,7 @@ import (
 )
 
 func init() {
-	verifyEnv("APP_PORT")
-	verifyEnv("JWT_SECRET")
-
+	verifyEnv()
 	database.Migrate()
 }
 
@@ -55,8 +53,15 @@ func main() {
 	app.Logger.Fatal(app.Start(fmt.Sprintf(":%s", os.Getenv("APP_PORT"))))
 }
 
-func verifyEnv(key string) {
-	if os.Getenv(key) == "" {
-		log.Fatalf("env %s is required", key)
+func verifyEnv() {
+	keys := []string{
+		"APP_PORT",
+		"JWT_SECRET",
+		"JWT_TTL",
+	}
+	for _, key := range keys {
+		if os.Getenv(key) == "" {
+			log.Fatalf("env %s is required", key)
+		}
 	}
 }

@@ -22,11 +22,10 @@ type User struct {
 }
 
 type Secret struct {
-	ID       uint   `json:"id" gorm:"primarykey"`
-	Username string `json:"username" validate:"required"`
-	Password string `json:"password" validate:"required"`
-	Tags     string `json:"tags" validate:"required"`
-	UserID   uint   `json:"-"`
+	ID         uint   `json:"id" gorm:"primarykey"`
+	Name       string `json:"name" validate:"required"`
+	Ciphertext string `json:"ciphertext" validate:"required"`
+	UserID     uint   `json:"-"`
 	BaseModel
 }
 
