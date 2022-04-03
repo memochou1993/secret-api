@@ -45,7 +45,7 @@ func main() {
 
 	r := api.Group("")
 	r.Use(middleware.JWTWithConfig(middleware.JWTConfig{Claims: &handler.TokenClaims{}, SigningKey: []byte(os.Getenv("JWT_SECRET"))}))
-	r.PATCH("/users", handler.UpdateUser)
+	r.PATCH("/user", handler.UpdateUser)
 	r.GET("/secrets", handler.ListSecrets)
 	r.POST("/secrets", handler.CreateSecret)
 	r.PATCH("/secrets/:id", handler.UpdateSecret)
