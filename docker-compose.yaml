@@ -3,6 +3,7 @@ version: "3"
 services:
   app:
     container_name: secret-api
+    restart: always
     build:
       context: .
       dockerfile: Dockerfile
