@@ -2,11 +2,17 @@ package database
 
 import (
 	"fmt"
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
 	"log"
 	"os"
 	"time"
+
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+)
+
+var (
+	db  *gorm.DB
+	err error
 )
 
 type BaseModel struct {
@@ -29,7 +35,7 @@ type Secret struct {
 	BaseModel
 }
 
-func DB() *gorm.DB {
+func Init() {
 	dsn := fmt.Sprintf(
 		"%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=true",
 		os.Getenv("DB_USERNAME"),
@@ -38,15 +44,18 @@ func DB() *gorm.DB {
 		os.Getenv("DB_PORT"),
 		os.Getenv("DB_DATABASE"),
 	)
-	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	db, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatalln(err)
 	}
+}
+
+func DB() *gorm.DB {
 	return db
 }
 
 func Migrate() {
-	if err := DB().AutoMigrate(
+	if err := db.AutoMigrate(
 		&User{},
 		&Secret{},
 	); err != nil {

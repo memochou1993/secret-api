@@ -2,11 +2,12 @@ package main
 
 import (
 	"fmt"
-	"github.com/go-playground/validator"
-	"github.com/memochou1993/secret-api/database"
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/go-playground/validator"
+	"github.com/memochou1993/secret-api/database"
 
 	_ "github.com/joho/godotenv/autoload"
 	"github.com/labstack/echo/v4"
@@ -16,6 +17,7 @@ import (
 
 func init() {
 	verifyEnv()
+	database.Init()
 	database.Migrate()
 }
 
