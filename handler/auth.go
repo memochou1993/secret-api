@@ -31,14 +31,19 @@ func CreateToken(c echo.Context) error {
 	if err := c.Validate(req); err != nil {
 		return err
 	}
+	if err := loginLimiter.allowLogin(c.RealIP(), req.Email); err != nil {
+		return err
+	}
 	user := &database.User{}
 	tx := database.DB().Where(&database.User{Email: req.Email}).First(user)
 	if errors.Is(tx.Error, gorm.ErrRecordNotFound) {
 		return echo.ErrUnauthorized
 	}
 	if !util.CheckPassword(req.Password, user.Password) {
+		loginLimiter.recordFailure(req.Email)
 		return echo.ErrUnauthorized
 	}
+	loginLimiter.recordSuccess(req.Email)
 	ttl, err := strconv.Atoi(os.Getenv("JWT_TTL"))
 	if err != nil {
 		return err
