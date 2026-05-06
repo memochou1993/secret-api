@@ -34,6 +34,7 @@ func (cv *CustomValidator) Validate(i interface{}) error {
 
 func main() {
 	app := echo.New()
+	app.IPExtractor = echo.ExtractIPFromXFFHeader(echo.TrustLoopback(true))
 	app.Use(middleware.Recover())
 	app.Validator = &CustomValidator{validator: validator.New()}
 	app.Use(middleware.CORSWithConfig(middleware.CORSConfig{
