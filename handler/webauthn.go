@@ -60,7 +60,7 @@ func BeginRegistration(c echo.Context) error {
 	sessionStore[fmt.Sprintf("reg_%d", user.ID)] = sessionData
 	sessionMu.Unlock()
 
-	return c.JSON(http.StatusOK, options)
+	return c.JSON(http.StatusOK, options.Response)
 }
 
 // FinishRegistration completes the registration process
@@ -115,7 +115,7 @@ func BeginLogin(c echo.Context) error {
 	sessionStore["login_"+sessionData.Challenge] = sessionData
 	sessionMu.Unlock()
 
-	return c.JSON(http.StatusOK, options)
+	return c.JSON(http.StatusOK, options.Response)
 }
 
 // FinishLogin completes a discoverable (passkey) login.
