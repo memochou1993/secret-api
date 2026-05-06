@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
 	"github.com/golang-jwt/jwt"
 	"github.com/labstack/echo/v4"
@@ -17,7 +18,10 @@ import (
 var (
 	wa    *webauthn.WebAuthn
 	waErr error
-	// Store session data for registration and login
+	// Store session data for registration and login.
+	// Registration sessions are keyed by user ID (the user is known via JWT).
+	// Login sessions are keyed by challenge because in discoverable flow the
+	// user is unknown until the assertion is received.
 	sessionStore = make(map[string]*webauthn.SessionData)
 	sessionMu    sync.RWMutex
 )
@@ -28,8 +32,8 @@ func initWebAuthn() {
 	}
 	wa, waErr = webauthn.New(&webauthn.Config{
 		RPDisplayName: "Secret API",
-		RPID:          os.Getenv("WEBAUTHN_RP_ID"), // e.g., localhost or example.com
-		RPOrigins:     []string{os.Getenv("WEBAUTHN_RP_ORIGIN")}, // e.g., http://localhost:3000
+		RPID:          os.Getenv("WEBAUTHN_RP_ID"),
+		RPOrigins:     []string{os.Getenv("WEBAUTHN_RP_ORIGIN")},
 	})
 	if waErr != nil {
 		fmt.Printf("failed to create webauthn: %v\n", waErr)
@@ -63,7 +67,7 @@ func BeginRegistration(c echo.Context) error {
 func FinishRegistration(c echo.Context) error {
 	initWebAuthn()
 	userID := c.Get("user").(*jwt.Token).Claims.(*TokenClaims).UserID
-	
+
 	sessionMu.RLock()
 	sessionData, ok := sessionStore[fmt.Sprintf("reg_%d", userID)]
 	sessionMu.RUnlock()
@@ -79,7 +83,6 @@ func FinishRegistration(c echo.Context) error {
 		return err
 	}
 
-	// Store credentials
 	dbCred := database.Credential{
 		ID:              credential.ID,
 		PublicKey:       credential.PublicKey,
@@ -98,72 +101,75 @@ func FinishRegistration(c echo.Context) error {
 	return c.NoContent(http.StatusCreated)
 }
 
-type WebAuthnLoginRequest struct {
-	Email string `json:"email" validate:"required"`
-}
-
-// BeginLogin starts the login process
+// BeginLogin starts a discoverable (passkey) login. No user identity is required;
+// the authenticator response will reveal which user is signing in.
 func BeginLogin(c echo.Context) error {
 	initWebAuthn()
-	req := &WebAuthnLoginRequest{}
-	if err := c.Bind(req); err != nil {
-		return err
-	}
 
-	user := &database.User{}
-	tx := database.DB().Preload("Credentials").Where(&database.User{Email: req.Email}).First(user)
-	if tx.Error != nil {
-		return echo.NewHTTPError(http.StatusNotFound, "User not found")
-	}
-
-	options, sessionData, err := wa.BeginLogin(user)
+	options, sessionData, err := wa.BeginDiscoverableLogin()
 	if err != nil {
-		return err
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 
 	sessionMu.Lock()
-	sessionStore[fmt.Sprintf("login_%s", req.Email)] = sessionData
+	sessionStore["login_"+sessionData.Challenge] = sessionData
 	sessionMu.Unlock()
 
 	return c.JSON(http.StatusOK, options)
 }
 
-// FinishLogin completes the login process
+// FinishLogin completes a discoverable (passkey) login.
 func FinishLogin(c echo.Context) error {
 	initWebAuthn()
-	req := &WebAuthnLoginRequest{}
-	if err := c.Bind(req); err != nil {
-		return err
+
+	parsedResponse, err := protocol.ParseCredentialRequestResponse(c.Request())
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
+	challenge := parsedResponse.Response.CollectedClientData.Challenge
+
 	sessionMu.RLock()
-	sessionData, ok := sessionStore[fmt.Sprintf("login_%s", req.Email)]
+	sessionData, ok := sessionStore["login_"+challenge]
 	sessionMu.RUnlock()
 	if !ok {
 		return echo.NewHTTPError(http.StatusBadRequest, "Session not found")
 	}
 
-	user := &database.User{}
-	database.DB().Preload("Credentials").Where(&database.User{Email: req.Email}).First(user)
+	handler := func(rawID, userHandle []byte) (webauthn.User, error) {
+		userID, err := strconv.ParseUint(string(userHandle), 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		user := &database.User{}
+		tx := database.DB().Preload("Credentials").Where(&database.User{ID: uint(userID)}).First(user)
+		if tx.Error != nil {
+			return nil, tx.Error
+		}
+		return *user, nil
+	}
 
-	credential, err := wa.FinishLogin(user, *sessionData, c.Request())
+	user, credential, err := wa.ValidatePasskeyLogin(handler, *sessionData, parsedResponse)
 	if err != nil {
-		return err
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+	}
+
+	dbUser, ok := user.(database.User)
+	if !ok {
+		return echo.NewHTTPError(http.StatusInternalServerError, "user type assertion failed")
 	}
 
 	database.DB().Model(&database.Credential{}).Where("id = ?", credential.ID).Update("sign_count", credential.Authenticator.SignCount)
 
 	sessionMu.Lock()
-	delete(sessionStore, fmt.Sprintf("login_%s", req.Email))
+	delete(sessionStore, "login_"+challenge)
 	sessionMu.Unlock()
 
-	return issueToken(c, user)
+	return issueToken(c, &dbUser)
 }
 
 // issueToken issues a JWT token
 func issueToken(c echo.Context, user *database.User) error {
-	// Reference handler/auth.go implementation
-	// Assume JWT_TTL and JWT_SECRET are set for convenience
 	ttl, _ := strconv.Atoi(os.Getenv("JWT_TTL"))
 	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, &TokenClaims{
 		user.ID,
@@ -176,5 +182,6 @@ func issueToken(c echo.Context, user *database.User) error {
 	}
 	return c.JSON(http.StatusOK, echo.Map{
 		"token": token,
+		"email": user.Email,
 	})
 }
