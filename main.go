@@ -44,9 +44,13 @@ func main() {
 	api := app.Group("/api")
 	api.POST("/tokens", handler.CreateToken)
 	api.POST("/users", handler.CreateUser)
+	api.POST("/webauthn/login/begin", handler.BeginLogin)
+	api.POST("/webauthn/login/finish", handler.FinishLogin)
 
 	r := api.Group("")
 	r.Use(middleware.JWTWithConfig(middleware.JWTConfig{Claims: &handler.TokenClaims{}, SigningKey: []byte(os.Getenv("JWT_SECRET"))}))
+	r.POST("/webauthn/register/begin", handler.BeginRegistration)
+	r.POST("/webauthn/register/finish", handler.FinishRegistration)
 	r.PATCH("/user", handler.UpdateUser)
 	r.GET("/secrets", handler.ListSecrets)
 	r.POST("/secrets", handler.CreateSecret)
@@ -61,6 +65,8 @@ func verifyEnv() {
 		"APP_PORT",
 		"JWT_SECRET",
 		"JWT_TTL",
+		"WEBAUTHN_RP_ID",
+		"WEBAUTHN_RP_ORIGIN",
 	}
 	for _, key := range keys {
 		if os.Getenv(key) == "" {

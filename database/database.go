@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/go-webauthn/webauthn/webauthn"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
@@ -21,9 +22,55 @@ type BaseModel struct {
 }
 
 type User struct {
-	ID       uint   `json:"id" gorm:"primarykey"`
-	Email    string `json:"email" validate:"required,email"`
-	Password string `json:"password" validate:"required,min=8"`
+	ID          uint         `json:"id" gorm:"primarykey"`
+	Email       string       `json:"email" validate:"required,email"`
+	Password    string       `json:"password" validate:"required,min=8"`
+	Credentials []Credential `json:"-"`
+	BaseModel
+}
+
+func (u User) WebAuthnID() []byte {
+	return []byte(fmt.Sprintf("%d", u.ID))
+}
+
+func (u User) WebAuthnName() string {
+	return u.Email
+}
+
+func (u User) WebAuthnDisplayName() string {
+	return u.Email
+}
+
+func (u User) WebAuthnIcon() string {
+	return ""
+}
+
+func (u User) WebAuthnCredentials() []webauthn.Credential {
+	res := []webauthn.Credential{}
+	for _, cred := range u.Credentials {
+		res = append(res, webauthn.Credential{
+			ID:              cred.ID,
+			PublicKey:       cred.PublicKey,
+			AttestationType: cred.AttestationType,
+			Transport:       nil,
+			Authenticator: webauthn.Authenticator{
+				AAGUID:       cred.AAGUID,
+				SignCount:    cred.SignCount,
+				CloneWarning: cred.CloneWarning,
+			},
+		})
+	}
+	return res
+}
+
+type Credential struct {
+	ID              []byte `gorm:"primarykey;type:varbinary(1023)"`
+	PublicKey       []byte
+	AttestationType string
+	AAGUID          []byte
+	SignCount       uint32
+	CloneWarning    bool
+	UserID          uint
 	BaseModel
 }
 
@@ -58,6 +105,7 @@ func Migrate() {
 	if err := db.AutoMigrate(
 		&User{},
 		&Secret{},
+		&Credential{},
 	); err != nil {
 		log.Fatalln(err)
 	}
