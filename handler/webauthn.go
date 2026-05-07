@@ -90,6 +90,7 @@ func FinishRegistration(c echo.Context) error {
 		AAGUID:          credential.Authenticator.AAGUID,
 		SignCount:       credential.Authenticator.SignCount,
 		CloneWarning:    credential.Authenticator.CloneWarning,
+		Flags:           uint8(credential.Flags.ProtocolValue()),
 		UserID:          user.ID,
 	}
 	database.DB().Create(&dbCred)

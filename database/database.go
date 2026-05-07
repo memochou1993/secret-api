@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/go-webauthn/webauthn/protocol"
 	"github.com/go-webauthn/webauthn/webauthn"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -53,6 +54,7 @@ func (u User) WebAuthnCredentials() []webauthn.Credential {
 			PublicKey:       cred.PublicKey,
 			AttestationType: cred.AttestationType,
 			Transport:       nil,
+			Flags:           webauthn.NewCredentialFlags(protocol.AuthenticatorFlags(cred.Flags)),
 			Authenticator: webauthn.Authenticator{
 				AAGUID:       cred.AAGUID,
 				SignCount:    cred.SignCount,
@@ -70,6 +72,7 @@ type Credential struct {
 	AAGUID          []byte
 	SignCount       uint32
 	CloneWarning    bool
+	Flags           uint8
 	UserID          uint
 	BaseModel
 }
